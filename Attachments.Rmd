@@ -6,6 +6,7 @@ date: "2025-03-09"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
 ```
 
 ```{r}
@@ -15,7 +16,7 @@ library(tidyverse)
 library(areal)  # For aerial interpolation
 
 # Load the spatial data
-parks <- st_read("Filtered Parks.geojson")
+parks <- st_read("Walkshed differences.geojson")
 census_tracts <- st_read("alcogisallegheny-county-census-tracts-2016.geojson")
 census_data <- read.csv("Census/cleaned_data.csv")
 
@@ -155,8 +156,6 @@ remove_zero_or_na_rows <- function(df) {
   return(df)
 }
 census_tracts <- remove_zero_or_na_rows(census_tracts)
-
-
 ```
 
 ```{r}
@@ -165,15 +164,7 @@ census_tracts <- remove_zero_or_na_rows(census_tracts)
 intersection <- st_intersection(census_tracts, parks)
 intersection$area <- st_area(intersection)
 census_tracts$area <- st_area(census_tracts)
-
-# Convert area from m^2 to acres
-census_tracts <- census_tracts %>%
-  mutate(area = area / 4046.85642)
-
-intersection <- intersection %>%
-  mutate(area = area / 4046.85642)
 ```
-
 
 ```{r}
 # For counts, divide area of intersection by tract area then multiply the ratio by the count for each tract in the walkshed. ISSUES: doesn't seem to be calculating correctly. Does it account for population?
@@ -192,9 +183,19 @@ census_tracts$Total <- clean_numeric(census_tracts$Total)
 # Apply cleaning and conversion to each extensive variable column
 intersection[extensive_vars] <- lapply(intersection[extensive_vars], clean_numeric)
 ```
+```{r}
+summary(census_tracts$area)  # Should match real-world tract sizes
+summary(intersection$area)    # Should align with parks' sizes
+#intersection$area <- intersection$area / 4046.85642  # Convert m² → acres
+```
 
 
 ```{r}
+
+# Convert area from m^2 to acres
+census_tracts <- census_tracts %>%
+  mutate(area = area / 4046.85642)
+
 # Calculate population density
 census_tracts$pop_density <- census_tracts$Total / census_tracts$area
 
@@ -205,9 +206,8 @@ intersection$area_ratio <- ifelse(!is.na(intersection$area),
                                   0)
 
 
-# Calculate population-weighted ratio
 intersection$pop_weighted_ratio <- intersection$area_ratio * 
-                                   census_tracts$pop_density[match(intersection$tract_number, census_tracts$tract_number)]
+                                   census_tracts$Total[match(intersection$tract_number, census_tracts$tract_number)]
 
 # Ensure numeric data
 intersection$pop_weighted_ratio <- as.numeric(intersection$pop_weighted_ratio)
@@ -215,16 +215,16 @@ intersection[extensive_vars] <- lapply(intersection[extensive_vars], function(x)
 
 # Perform population-weighted interpolation
 for (var in extensive_vars) {
-  intersection[[var]] <- intersection[[var]] * intersection$pop_weighted_ratio
+  intersection[[var]] <- intersection[[var]] * intersection$area_ratio
 }
 
 # Final step - summarize interpolated values by objectid
 
 # Summarize extensive variables and include 'updatepknm'
 summary_data <- intersection %>%
-  group_by(objectid) %>%
+  group_by(fid) %>%
   summarise(
-    updatepknm = first(updatepknm),
+    updatepknm = first(SiteName),
     across(all_of(extensive_vars), ~sum(.x, na.rm = TRUE), .names = "sum_{.col}")
   ) %>%
   mutate(
@@ -239,6 +239,71 @@ summary_data <- intersection %>%
   )
 
 write.csv(summary_data, "attached_census.csv", row.names = FALSE)
+
+```
+```{r}
+summary(intersection$area_ratio)
 ```
 
+```{r}
+# Function to convert data frame to GeoJSON and save to file
+write_geojson <- function(data, filename, lon_col = "longitude", lat_col = "latitude", 
+                          crs = 4326, pretty = TRUE) {
+  
+  # Check if sf package is installed
+  if (!requireNamespace("sf", quietly = TRUE)) {
+    stop("Package 'sf' is needed. Install with install.packages('sf')")
+  }
+  
+  # Check if jsonlite package is installed
+  if (!requireNamespace("jsonlite", quietly = TRUE)) {
+    stop("Package 'jsonlite' is needed. Install with install.packages('jsonlite')")
+  }
+  
+  # Make sure longitude and latitude columns exist
+  if (!lon_col %in% colnames(data) || !lat_col %in% colnames(data)) {
+    # Check if data might already be spatial
+    if (inherits(data, "sf")) {
+      sf_data <- data
+    } else {
+      stop(paste("Columns", lon_col, "and/or", lat_col, "not found in the data frame"))
+    }
+  } else {
+    # Convert data frame to sf object
+    sf_data <- sf::st_as_sf(data, 
+                            coords = c(lon_col, lat_col), 
+                            crs = crs)
+  }
+  
+  # Convert to GeoJSON format
+  geojson <- sf::st_write(sf_data, 
+                          filename, 
+                          driver = "GeoJSON",
+                          delete_dsn = TRUE)
+  
+  # Pretty-print if requested
+  if (pretty) {
+    # Read the GeoJSON file
+    geojson_text <- readLines(filename)
+    geojson_text <- paste(geojson_text, collapse = "")
+    
+    # Parse and pretty-print
+    json_parsed <- jsonlite::fromJSON(geojson_text, simplifyVector = FALSE)
+    jsonlite::write_json(json_parsed, filename, pretty = TRUE, auto_unbox = TRUE)
+  }
+  
+  message("GeoJSON file successfully created: ", filename)
+  return(invisible(filename))
+}
+
+write_geojson(summary_data, "attached_census.geojson")
+```
+```{r}
+# Step 1: Drop the geometry column from the sf object
+summary_data <- sf::st_drop_geometry(summary_data)
+
+# Step 2: Write the dataset to CSV
+write.csv(summary_data, "attached_census.csv", row.names = FALSE)
+```
+```
 
