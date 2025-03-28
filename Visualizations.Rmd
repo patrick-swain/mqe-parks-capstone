@@ -1,0 +1,265 @@
+
+```{r}
+# Load required libraries
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(RColorBrewer)
+library(viridis)
+library(ggpubr)
+
+# Load data
+indexed_df <- read.csv("indexed_census.csv")
+attached_df <- read.csv("attached_census.csv")
+
+# Exclude blank and NA values
+indexed_df <- indexed_df %>% filter(complete.cases(.))
+
+# ---------- GRAPH 2: Poverty Levels vs. Median Age Scatter Plot with Custom Gradient ----------
+poverty_vs_age <- ggplot(indexed_df, aes(x = median_age, y = scaled_index_sum_Below.poverty.level._pct, color = median_age)) +
+  geom_point(alpha = 0.6, size = 4) +
+  geom_smooth(method = "lm", color = "darkgray", se = FALSE) +
+  stat_cor(method = "pearson", label.x = 30, label.y = 2.5, size = 5) +  # R-squared label
+  scale_color_gradientn(colors = c("#0571b0", "#92c5de", "#f7f7f7", "#f4a582", "#ca0020")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  ) +
+  ggtitle("Poverty Levels vs. Median Age in Park Walksheds") +
+  xlab("Median Age") +
+  ylab("Scaled Poverty Level Index")
+
+# ---------- GRAPH 3: Parks Ranked by Vacancy Index with Sequential Blues ----------
+vacancy_ranked <- indexed_df %>%
+  arrange(desc(scaled_index_sum_Vacant_pct)) %>%
+  slice(c(1:10, (n() - 9):n()))
+
+vacancy <- ggplot(vacancy_ranked, aes(x = reorder(updatepknm, scaled_index_sum_Vacant_pct), y = scaled_index_sum_Vacant_pct, fill = scaled_index_sum_Vacant_pct)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "#cce7ff", high = "#00509e") +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0, margin = margin(b = 10)),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "bottom"
+  ) +
+  ggtitle("Parks Ranked by Vacancy Index (Top and Bottom 10)") +
+  xlab("Park Name") +
+  ylab("Scaled Vacancy Index") +
+  labs(fill = "Vacancy Index")
+
+# ---------- GRAPH 4: Parks Ranked by Black Population Index (Diverging Reds) ----------
+black_ranked <- indexed_df %>%
+  arrange(desc(scaled_index_sum_Black.or.African.American.alone_pct)) %>%
+  slice(c(1:10, (n() - 9):n()))
+
+black_ranking <- ggplot(black_ranked, aes(x = reorder(updatepknm, scaled_index_sum_Black.or.African.American.alone_pct), 
+                         y = scaled_index_sum_Black.or.African.American.alone_pct, 
+                         fill = scaled_index_sum_Black.or.African.American.alone_pct)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "#ffeda0", high = "#f03b20") +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0, margin = margin(b = 10)),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "bottom"
+  ) +
+  ggtitle("Parks Ranked by Black Population Index (Top and Bottom 10)") +
+  xlab("Park Name") +
+  ylab("Scaled Black Population Index") 
+
+# ---------- GRAPH 5: Hispanic Population Index (Muted Reds-Yellows) ----------
+hispanic_ranked <- indexed_df %>%
+  arrange(desc(scaled_index_sum_Hispanic.or.Latino_pct)) %>%
+  slice(c(1:10, (n() - 9):n()))
+
+hispanic_ranking <- ggplot(hispanic_ranked, aes(x = reorder(updatepknm, scaled_index_sum_Hispanic.or.Latino_pct), 
+                            y = scaled_index_sum_Hispanic.or.Latino_pct, 
+                            fill = scaled_index_sum_Hispanic.or.Latino_pct)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "#ffeda0", high = "#f03b20") +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0, margin = margin(b = 10)),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "bottom"
+  ) +
+  ggtitle("Parks Ranked by Hispanic Population Index (Top and Bottom 10)") +
+  xlab("Park Name") +
+  ylab("Scaled Hispanic Population Index")
+
+# ---------- GRAPH 4: Parks Ranked by White Population Index ----------
+white_ranked <- indexed_df %>%
+  arrange(desc(scaled_index_sum_White.alone_pct)) %>%
+  slice(c(1:10, (n() - 9):n()))
+
+white_ranking <- ggplot(white_ranked, aes(x = reorder(updatepknm, scaled_index_sum_White.alone_pct), 
+                         y = scaled_index_sum_White.alone_pct, 
+                         fill = scaled_index_sum_White.alone_pct)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "#ffeda0", high = "#f03b20") +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0, margin = margin(b = 10)),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "bottom"
+  ) +
+  ggtitle("Parks Ranked by White Population Index (Top and Bottom 10)") +
+  xlab("Park Name") +
+  ylab("Scaled White Population Index")
+
+# ---------- GRAPH 4: Parks Ranked by Asian Population Index ----------
+asian_ranked <- indexed_df %>%
+  arrange(desc(scaled_index_sum_Asian.alone_pct)) %>%
+  slice(c(1:10, (n() - 9):n()))
+
+asian_ranking <- ggplot(asian_ranked, aes(x = reorder(updatepknm, scaled_index_sum_Asian.alone_pct), 
+                         y = scaled_index_sum_Asian.alone_pct, 
+                         fill = scaled_index_sum_Asian.alone_pct)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "#ffeda0", high = "#f03b20") +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0, margin = margin(b = 10)),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "bottom"
+  ) +
+  ggtitle("Parks Ranked by Asian Population Index (Top and Bottom 10)") +
+  xlab("Park Name") +
+  ylab("Scaled Asian Population Index")
+
+# ---------- GRAPH 6: Poverty vs. Vacancy Scatter Plot with Diverging Blues ----------
+poverty_vs_vacancy <- ggplot(indexed_df, aes(x = scaled_index_sum_Below.poverty.level._pct, y = scaled_index_sum_Vacant_pct, color = scaled_index_sum_Vacant_pct)) +
+  geom_point(alpha = 0.7, size = 4) +
+  geom_smooth(method = "lm", color = "darkgray", se = FALSE) +
+  stat_cor(method = "pearson", label.x = 0.5, label.y = 2.5, size = 5) +
+  scale_color_gradient(low = "#deebf7", high = "#3182bd") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0, margin = margin(b = 10)),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.position = "bottom"
+  ) +
+  ggtitle("Poverty Index vs. Vacancy Index in Park Walksheds") +
+  xlab("Scaled Poverty Level Index") +
+  ylab("Scaled Vacancy Level Index") 
+
+# Ensure the visualizations folder exists
+dir.create("visualizations", showWarnings = FALSE)
+
+# Function to save the graph
+save_graph <- function(plot, filename) {
+  ggsave(
+    filename = file.path("visualizations", filename), 
+    plot = plot, 
+    width = 10, 
+    height = 6, 
+    dpi = 300
+  )
+}
+# Save the graph
+save_graph(asian_ranking, "asian_population_index.png")
+save_graph(white_ranking, "white_population_index.png")
+save_graph(black_ranking, "black_population_index.png")
+save_graph(hispanic_ranking, "hispanic_population_index.png")
+save_graph(poverty_vs_age, "poverty_vs_age.png")
+save_graph(poverty_vs_vacancy, "poverty_vs_vacancy.png")
+save_graph(vacancy, "vacancy.png")
+
+asian_ranking
+white_ranking
+black_ranking
+hispanic_ranking
+poverty_vs_age
+poverty_vs_vacancy
+vacancy
+```
+```{r}
+library(sf)              # For reading and handling spatial data
+library(tidyverse)       # For data wrangling and plotting
+library(ggplot2)         # For creating plots
+library(tmap)            # For interactive and static geospatial maps
+
+# Load GeoJSON and CSV data
+geo_data <- st_read("attached_census.geojson")
+indexed_census <- read.csv("indexed_census.csv")
+attached_census <- read.csv("attached_census.csv")
+
+# Merge spatial data with census data based on a common key (assuming 'updatepknm')
+geo_data <- geo_data %>% left_join(indexed_census, by = "updatepknm")
+
+# Set interactive mode
+tmap_mode("view")  
+
+# 1. Choropleth map of scaled Hispanic/Latino percentage
+hispanic_map <- tm_shape(geo_data) +
+  tm_polygons("scaled_index_sum_Hispanic.or.Latino_pct",
+              palette = "YlOrRd",
+              title = "Scaled Hispanic/Latino %") +
+  tm_layout(legend.outside = TRUE)
+
+# Save the interactive Hispanic/Latino map
+tmap_save(hispanic_map, "hispanic_map.html")
+
+# 2. Choropleth map of scaled vacancy percentages
+vacancy_map <- tm_shape(geo_data) +
+  tm_polygons("scaled_index_sum_Vacant_pct",
+              palette = "Blues",
+              title = "Scaled Vacancy %") +
+  tm_layout(legend.outside = TRUE)
+
+# Save the interactive Vacancy map
+tmap_save(vacancy_map, "vacancy_map.html")
+
+# 3. Create separate maps for each race demographic
+geo_data <- geo_data %>%
+  pivot_longer(cols = starts_with("scaled_index_sum_"),
+               names_to = "variable",
+               values_to = "value") %>%
+  mutate(variable = recode(variable,
+                           "scaled_index_sum_Hispanic.or.Latino_pct" = "Hispanic/Latino %",
+                           "scaled_index_sum_White.alone_pct" = "White %",
+                           "scaled_index_sum_Black.or.African.American.alone_pct" = "Black/African American %",
+                           "scaled_index_sum_Asian.alone_pct" = "Asian %"))
+
+# Save each individual map for race categories separately
+race_categories <- unique(geo_data$variable)
+
+for (var in race_categories) {
+  race_map <- tm_shape(geo_data %>% filter(variable == var)) +
+    tm_polygons("value",
+                palette = "Viridis",
+                title = paste0("Scaled ", var, " %")) +
+    tm_layout(legend.outside = TRUE, main.title = var)
+  
+  # Save each race map separately
+  tmap_save(race_map, paste0(gsub("/", "_", var), "_map.html"))
+}
+
+# 4. Static map of population density (from attached_census)
+geo_data <- geo_data %>% left_join(attached_census, by = "updatepknm")
+
+ggplot(geo_data) +
+  geom_sf(aes(fill = sum_Total.x), color = NA) +
+  scale_fill_viridis_c(option = "plasma", trans = "sqrt") +
+  labs(title = "Population Density by Park Area",
+       fill = "Population") +
+  theme_minimal()
+
+# Save the static map to file
+ggsave("population_density_map.png")
+```
+
